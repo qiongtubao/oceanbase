@@ -308,12 +308,12 @@ int ObServer::init(const ObServerOptions &opts, const ObPLogWriterCfg &log_cfg)
         LOG_ERROR("init session base values failed", KR(ret));
       }
     }
-
-    if (FAILEDx(ObQueryRetryCtrl::init())) {
+    
+    if (FAILEDx(ObQueryRetryCtrl::init())) { //查询重试控制启动
       LOG_ERROR("init retry ctrl failed", KR(ret));
-    } else if (OB_FAIL(ObMdsEventBuffer::init())) {
+    } else if (OB_FAIL(ObMdsEventBuffer::init())) {  //MDS通常指的是“Meta Data Service”或者“Meta Data Server”，这是OceanBase架构中用于管理元数据的一个关键组件
       LOG_WARN("init MDS event buffer failed", KR(ret));
-    } else if (OB_FAIL(ObTableApiProcessorBase::init_session())) {
+    } else if (OB_FAIL(ObTableApiProcessorBase::init_session())) { //初始化static session
       LOG_ERROR("init static session failed", KR(ret));
     } else if (OB_FAIL(init_loaddata_global_stat())) {
       LOG_ERROR("init global load data stat map failed", KR(ret));
@@ -341,7 +341,7 @@ int ObServer::init(const ObServerOptions &opts, const ObPLogWriterCfg &log_cfg)
       LOG_ERROR("fail to init schema status proxy", KR(ret));
     } else if (OB_FAIL(init_schema())) {
       LOG_ERROR("init schema failed", KR(ret));
-    } else if (OB_FAIL(init_network())) {
+    } else if (OB_FAIL(init_network())) { //初始化网络
       LOG_ERROR("init network failed", KR(ret));
     } else if (OB_FAIL(init_interrupt())) {
       LOG_ERROR("init interrupt failed", KR(ret));
@@ -420,7 +420,7 @@ int ObServer::init(const ObServerOptions &opts, const ObPLogWriterCfg &log_cfg)
       LOG_ERROR("init sObThreadHungDetector failed", KR(ret));
     } else if (OB_FAIL(palf::election::GLOBAL_INIT_ELECTION_MODULE())) {
       LOG_ERROR("init election module failed", KR(ret));
-    } else if (OB_FAIL(init_multi_tenant())) {
+    } else if (OB_FAIL(init_multi_tenant())) { //[latte] 初始化租户环境 
       LOG_ERROR("init multi tenant failed", KR(ret));
     } else if (OB_FAIL(init_ctas_clean_up_task())) {
       LOG_ERROR("init ctas clean up task failed", KR(ret));
@@ -809,7 +809,9 @@ int ObServer::start_sig_worker_and_handle()
   }
   return ret;
 }
-
+/**
+ *  启动
+ */
 int ObServer::start()
 {
   int ret = OB_SUCCESS;
@@ -2235,15 +2237,18 @@ int ObServer::init_loaddata_global_stat()
   return ret;
 }
 
+/**
+ * 启动网络
+ */
 int ObServer::init_network()
 {
   int ret = OB_SUCCESS;
 
   obrpc::ObIRpcExtraPayload::set_extra_payload(ObRpcExtraPayload::extra_payload_instance());
 
-  if (OB_FAIL(net_frame_.init())) {
+  if (OB_FAIL(net_frame_.init())) { //初始化网络
     LOG_ERROR("init server network fail");
-  } else if (OB_FAIL(net_frame_.get_proxy(srv_rpc_proxy_))) {
+  } else if (OB_FAIL(net_frame_.get_proxy(srv_rpc_proxy_))) { 
     LOG_ERROR("get rpc proxy fail", KR(ret));
   } else if (OB_FAIL(net_frame_.get_proxy(rs_rpc_proxy_))) {
     LOG_ERROR("get rpc proxy fail", KR(ret));
@@ -2286,7 +2291,7 @@ int ObServer::init_multi_tenant()
   int ret = OB_SUCCESS;
 
   if (OB_FAIL(multi_tenant_.init(self_addr_,
-                                 &sql_proxy_))) {
+                                 &sql_proxy_))) { //第一阶段初始化 之后会使用start 开启
     LOG_ERROR("init multi tenant fail", KR(ret));
 
   }

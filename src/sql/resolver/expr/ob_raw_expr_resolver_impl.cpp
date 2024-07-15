@@ -66,6 +66,7 @@ int ObRawExprResolverImpl::resolve(const ParseNode *node,
   ctx_.win_exprs_ = &win_exprs;
   ctx_.udf_info_ = &udf_info;
   ctx_.user_var_exprs_ = &user_var_exprs;
+  //[latte] 具体实现ObParseNode 解析成ObRawExpr
   int ret = recursive_resolve(node, expr);
   if (OB_SUCC(ret)) {
     if (OB_FAIL(expr->extract_info())) {
@@ -1004,6 +1005,16 @@ int ObRawExprResolverImpl::do_recursive_resolve(const ParseNode *node, ObRawExpr
       }
       case T_FUN_SYS_REGEXP_LIKE:
       case T_FUN_SYS: {
+        /**
+         * 表达式解析的主函数。可以看到，
+         * 抽象语法树结点中用 T_XXX 这样的枚举值表示结点类型。
+         * 这里有一个比较特别的设计，所有形式为 func(arg1, arg2) 的表达式
+         * 在 parser 里都被解析为 T_FUN_SYS 类型，函数名存在子结点里，
+         * 待 resolver 阶段处理。这样，新增一个普通内建函数的时候，我们不需要修改语法文件。
+         * 不过，这也是为什么有时候相关 SQL 函数不存在的报错与 MySQL , 
+         * Oracle 的行为不完全一致。从上面代码可以看到，如果内建函数中没找到，
+         * 还会从用户自定义函数（UDF）中查找。
+         */
         if (OB_FAIL(process_fun_sys_node(node, expr))) {
           if (ret != OB_ERR_FUNCTION_UNKNOWN) {
             LOG_WARN("fail to process system function node", K(ret), K(node));
@@ -6211,6 +6222,11 @@ int ObRawExprResolverImpl::process_fun_sys_node(const ParseNode *node, ObRawExpr
   // 如果先解析参数列表, 则可能会将错误的column ref加入ctx_.columns_, 外部解析UDF的时候会重复加入导致解析错误
   if (OB_SUCC(ret)) {
     ObExprOperatorType type;
+    /**
+     * [latte] ObExprOperatorFactory 查找方法 
+     * 如何注册方法
+     *  ObExprOperatorFactory::register_expr_operators
+     */
     type = ObExprOperatorFactory::get_type_by_name(func_name);
     if (OB_UNLIKELY(T_INVALID == (type))) {
       ret = OB_ERR_FUNCTION_UNKNOWN;

@@ -21,13 +21,14 @@ namespace oceanbase
 {
 namespace sql
 {
-class ObRawExprResolver
+class ObRawExprResolver //解析sql表达式接口
 {
 public:
   ObRawExprResolver() {}
 
   virtual ~ObRawExprResolver() {}
 
+  //输入node 输出ObOpRawExpr
   virtual int resolve(const ParseNode *node,
                       ObRawExpr *&expr,
                       common::ObIArray<ObQualifiedName> &columns,

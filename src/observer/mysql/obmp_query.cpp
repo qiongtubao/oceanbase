@@ -83,7 +83,7 @@ ObMPQuery::~ObMPQuery()
 {
 }
 
-
+//[latte]SQL的入口方法
 int ObMPQuery::process()
 {
   int ret = OB_SUCCESS;
@@ -94,6 +94,13 @@ int ObMPQuery::process()
   bool need_disconnect = true;
   bool async_resp_used = false; // 由事务提交线程异步回复客户端
   int64_t query_timeout = 0;
+  /**[latte]
+  在 mpquery 入口的地方会初始化它，在后续处理过程中它是一个线程局部变量，可以全局访问。
+  它是一条 SQL 一次处理过程的一个唯一标识，如果执行过程中切换了线程，或者执行了 RPC，
+  都会带上这个 ID。在 oblog 打印的所有调试日志中，都包含一个以 Y 开头的十六进制串
+  （猜猜为什么以 Y 开头），就是 TraceId，它可以把不同位置打印的日志串起来。
+   OceanBase 研发同学查问题时都习惯 grep 到 TraceId 相关的所有日志。
+  */
   ObCurTraceId::TraceId *cur_trace_id = ObCurTraceId::get_trace_id();
   ObSMConnection *conn = get_conn();
   static int64_t concurrent_count = 0;
@@ -110,30 +117,43 @@ int ObMPQuery::process()
   DEFER(if (need_dec) (void)ATOMIC_FAA(&concurrent_count, -1));
   if (OB_FAIL(ret)) {
     // do-nothing
-  } else if (OB_ISNULL(req_) || OB_ISNULL(conn) || OB_ISNULL(cur_trace_id)) {
+  } else if (OB_ISNULL(req_) || OB_ISNULL(conn) || OB_ISNULL(cur_trace_id)) { //[latte]
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("null conn ptr", K_(sql), K_(req), K(conn), K(cur_trace_id), K(ret));
-  } else if (OB_UNLIKELY(!conn->is_in_authed_phase())) {
+  } else if (OB_UNLIKELY(!conn->is_in_authed_phase())) { //[latte]判断是否为未授权
     ret = OB_ERR_NO_PRIVILEGE;
     LOG_WARN("receive sql without session", K_(sql), K(ret));
-  } else if (OB_ISNULL(conn->tenant_)) {
+  } else if (OB_ISNULL(conn->tenant_)) { //[latte]查看租户是否为空
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid tenant", K_(sql), K(conn->tenant_), K(ret));
-  } else if (OB_FAIL(get_session(sess))) {
+  } else if (OB_FAIL(get_session(sess))) { //[latte]获得session
     LOG_WARN("get session fail", K_(sql), K(ret));
-  } else if (OB_ISNULL(sess)) {
+  } else if (OB_ISNULL(sess)) { //[latte]判断session是否为空
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("session is NULL or invalid", K_(sql), K(sess), K(ret));
-  } else {
+  } else {//[latte]开始执行任务
+    //[latte]判断是ORACLE 还是MYSQL的语法
     lib::CompatModeGuard g(sess->get_compatibility_mode() == ORACLE_MODE ?
                              lib::Worker::CompatMode::ORACLE : lib::Worker::CompatMode::MYSQL);
+    //[latte]设置session
     THIS_WORKER.set_session(sess);
     ObSQLSessionInfo &session = *sess;
+    //[latte]加锁
     ObSQLSessionInfo::LockGuard lock_guard(session.get_query_lock());
+    //[latte]设置sql的唯一标识
     session.set_current_trace_id(ObCurTraceId::get_trace_id());
     int64_t val = 0;
     const bool check_throttle = !is_root_user(sess->get_user_id());
 
+    /**[latte]
+       * OB_KILLED_BY_THROTTLING 错误在OceanBase数据库中通常出现在资源争用和负载管理的场景下。当数据库系统检测到资源压力过大，为了保护系统的稳定性和响应性，可能会采取一种叫做“throttling”（节流）的机制来限制某些高消耗资源的操作。
+          具体来说，OB_KILLED_BY_THROTTLING 错误可能在以下场景中出现：
+          高并发查询：如果大量的并发查询超过了系统处理能力，OceanBase可能会开始节流新的查询请求，以避免系统过载。
+          资源限制：OceanBase的资源管理器可能会根据预设的资源池和租户的资源配额，限制超出配额的SQL执行。如果某个SQL耗用了过多的资源，如CPU或内存，它可能会被终止，以防止影响其他重要任务的执行。
+          长时间运行的查询：长时间运行的查询可能会占用大量资源，OceanBase为了防止这类查询拖垮整个系统，可能会主动终止它们。
+          系统级的资源管理策略：OceanBase有一个系统级的资源管理策略，当系统检测到整体资源使用接近临界值时，会开始对资源消耗进行节流，这可能包括主动终止某些正在执行的查询。
+          实时任务与批处理任务的冲突：在实时处理和批处理混合的工作负载中，如果批处理任务消耗了太多资源，可能会影响到实时任务的响应时间，这时OceanBase会采取措施节流批处理任务。
+       */
     if (check_throttle &&
         !sess->is_inner() &&
         sess->get_raw_audit_record().try_cnt_ == 0 &&
@@ -161,18 +181,18 @@ int ObMPQuery::process()
       const ObMySQLRawPacket &pkt = reinterpret_cast<const ObMySQLRawPacket&>(req_->get_packet());
       int64_t packet_len = pkt.get_clen();
       req_->set_trace_point(ObRequest::OB_EASY_REQUEST_MPQUERY_PROCESS);
-      if (OB_UNLIKELY(!session.is_valid())) {
+      if (OB_UNLIKELY(!session.is_valid())) { //[latte]判断session是否失效
         ret = OB_ERR_UNEXPECTED;
         LOG_ERROR("invalid session", K_(sql), K(ret));
-      } else if (OB_UNLIKELY(session.is_zombie())) {
+      } else if (OB_UNLIKELY(session.is_zombie())) { //[latte]判断session是否中断
         //session has been killed some moment ago
         ret = OB_ERR_SESSION_INTERRUPTED;
         LOG_WARN("session has been killed", K(session.get_session_state()), K_(sql),
                  K(session.get_sessid()), "proxy_sessid", session.get_proxy_sessid(), K(ret));
-      } else if (OB_FAIL(session.check_and_init_retry_info(*cur_trace_id, sql_))) {
+      } else if (OB_FAIL(session.check_and_init_retry_info(*cur_trace_id, sql_))) { 
         // 注意，retry info和last query trace id的逻辑要写在query lock内，否则会有并发问题
         LOG_WARN("fail to check and init retry info", K(ret), K(*cur_trace_id), K_(sql));
-      } else if (OB_FAIL(session.get_query_timeout(query_timeout))) {
+      } else if (OB_FAIL(session.get_query_timeout(query_timeout))) { //获得超时时间
         LOG_WARN("fail to get query timeout", K_(sql), K(ret));
       } else if (OB_FAIL(gctx_.schema_service_->get_tenant_received_broadcast_version(
                   session.get_effective_tenant_id(), tenant_version))) {
@@ -218,6 +238,7 @@ int ObMPQuery::process()
         bool has_more = false;
         bool force_sync_resp = false;
         need_response_error = false;
+        //[latte] 模块执行语法分析，把 SQL 字符串解析为一个 ParseNode 组成的抽象语法树。
         ObParser parser(THIS_WORKER.get_sql_arena_allocator(),
                         session.get_sql_mode(), session.get_charsets4parser());
         //为了性能优化考虑，减少数组长度，降低无用元素的构造和析构开销
@@ -237,7 +258,7 @@ int ObMPQuery::process()
 
         if (OB_FAIL(ret)) {
           //do nothing
-        } else if (OB_FAIL(parser.split_multiple_stmt(sql_, queries, parse_stat))) {
+        } else if (OB_FAIL(parser.split_multiple_stmt(sql_, queries, parse_stat))) {//[latte] 首先通过 ObParser 的一个快速解析入口 split_multiple_stmt 把每条语句拆分出来，对每条语句进行 process_single_stmt
           // 进入本分支，说明push_back出错，OOM，委托外层代码返回错误码
           // 且进入此分支之后，要断连接
           need_response_error = true;
@@ -457,7 +478,13 @@ int ObMPQuery::try_batched_multi_stmt_optimization(sql::ObSQLSessionInfo &sessio
       K(queries), K(enable_batch_opt), K(ret), K(THIS_WORKER.need_retry()), K(retry_ctrl_.need_retry()), K(retry_ctrl_.get_retry_type()));
   return ret;
 }
-
+/**
+ * 单条命令
+  首先通过 ObParser 的一个快速解析入口 split_multiple_stmt 
+  把每条语句拆分出来，对每条语句进行 process_single_stmt。
+  事务控制逻辑暂且忽略，
+  最后 do_process 进入了 SQL 模块。
+*/
 int ObMPQuery::process_single_stmt(const ObMultiStmtItem &multi_stmt_item,
                                    ObSQLSessionInfo &session,
                                    bool has_more_result,
@@ -516,6 +543,13 @@ int ObMPQuery::process_single_stmt(const ObMultiStmtItem &multi_stmt_item,
         bool first_exec_sql = session.get_is_in_retry() ? false :
             (multi_stmt_item.is_part_of_multi_stmt() ? multi_stmt_item.get_seq_num() <= 1 : true);
         if (OB_LIKELY(first_exec_sql)) {
+          /** [latte]
+           * do_process 会调用这个类的 stmt_query 方法：
+           * 输入 SQL 语句字符串，
+           * 输出一个包含物理执行计划和元信息的 ResultSet。
+           * 外层打开并迭代结果集，把每一行结果发送给客户端。
+           * 所以，协议和执行计划处理本身是“流式”的，并不需要查询到全部结果才返回客户端。
+          */
           ret = do_process(session,
                            has_more_result,
                            force_sync_resp,
@@ -662,6 +696,13 @@ OB_INLINE int ObMPQuery::get_tenant_schema_info_(const uint64_t tenant_id,
   return ret;
 }
 
+/** [latte]
+ * do_process 会调用这个类的 stmt_query 方法：
+ * 输入 SQL 语句字符串，
+ * 输出一个包含物理执行计划和元信息的 ResultSet。
+ * 外层打开并迭代结果集，把每一行结果发送给客户端。
+ * 所以，协议和执行计划处理本身是“流式”的，并不需要查询到全部结果才返回客户端。
+ */
 OB_INLINE int ObMPQuery::do_process(ObSQLSessionInfo &session,
                                     bool has_more_result,
                                     bool force_sync_resp,

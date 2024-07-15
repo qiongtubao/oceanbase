@@ -53,10 +53,24 @@ public:
     return &ez_handler_;
   }
 
-  void *decode(easy_message_t *m);
+  /**[latte]
+   *  easy_connection_t 连接
+   *    每个连接上多个消息用链表连起来
+   *  easy_request_t 请求
+   *    多个请求组合起来形成一个完整的消息（可看作应用层的包）
+   *  easy_message_t 消息
+   * 
+   *  子类ObMySQLHandler 和 ObRpcHandler
+   */
+
+  //[latte]从网络上读取一段字节流，按照定义的协议，解析成数据结构，供之后处理
+  void *decode(easy_message_t *m); 
+  //[latte]把process 的结果转换成字节流 然后把结果挂在到request的输出上
   int encode(easy_request_t *r, void *packet);
+  //[latte]处理从decode中解析出的结构 可以是同步处理,也可以是异步处理
   int process(easy_request_t *r);
   int batch_process(easy_message_t *m);
+  //[latte]接受TCP连接 回调该方法，可以在该事件中做密码验证等事情
   int on_connect(easy_connection_t *c);
   int on_disconnect(easy_connection_t *c);
   int new_packet(easy_connection_t *c);
@@ -68,6 +82,7 @@ public:
   int send_data_done(easy_connection_t *c);
   int on_redispatch(easy_connection_t *c);
   int on_close(easy_connection_t *c);
+  //断开连接前执行的操作
   int cleanup(easy_request_t *r, void *apacket);
 
 public:

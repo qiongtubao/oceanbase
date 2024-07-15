@@ -62,11 +62,17 @@ void *ObMySQLHandler::decode(easy_message_t *m)
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("easy callback message null pointer", KP(m->input->pos), KP(m->input->last), K(ret));
   } else {
+    /**
+     *  判断协议 返回对应处理器
+     *  普通mysql协议 （非加密） 采用ObMysqlProtocolProcessor
+     *  加密mysql协议          采用ObMysqlCompressProtocolProcessor
+     *  OB 2.0协议            采用Ob20ProtocolProcessor类
+     */
     ObVirtualCSProtocolProcessor *processor = get_protocol_processor(m->c);
     if (OB_ISNULL(processor)) {
       ret = OB_ERR_UNEXPECTED;
       LOG_ERROR("invalid protocol processor", KP(processor), K(ret));
-    } else if (OB_FAIL(processor->decode(m, pkt))) {
+    } else if (OB_FAIL(processor->decode(m, pkt))) { //解析消息成ObPacket类型
       LOG_ERROR("fail to decode", K(ret));
     }
   }

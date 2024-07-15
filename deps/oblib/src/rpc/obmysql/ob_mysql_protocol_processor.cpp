@@ -38,6 +38,8 @@ int ObMysqlProtocolProcessor::do_decode(ObSMConnection& conn, ObICSMemPool& pool
   if ((end - start) >= header_size) {
     // 1. decode length from net buffer
     // 2. decode seq from net buffer
+    // [latte] 1. 从网络缓冲区解码长度
+    // [latte] 2. 从网络缓冲区解码序列
     uint32_t pktlen = 0;
     uint8_t pktseq  = 0;
     ObMySQLUtil::get_uint3(start, pktlen);
@@ -51,14 +53,16 @@ int ObMysqlProtocolProcessor::do_decode(ObSMConnection& conn, ObICSMemPool& pool
       int64_t delta_len = pktlen - rpktlen;
       // valid packet, but not sufficient data received by easy, tell easy read more.
       // go backward with MySQL packet header length
+      // 数据包有效，但 easy 收到的数据不足，请告知 easy 更多信息。
+      // 使用 MySQL 数据包头长度向后移动
       start -= header_size;
       next_read_bytes = delta_len;
-    } else if (conn.is_in_authed_phase()) {
+    } else if (conn.is_in_authed_phase()) { //是否处于授权
       if (OB_FAIL(decode_body(pool, start, pktlen, pktseq, pkt))) {
         LOG_ERROR("fail to decode_body", K(sessid), K(pktseq), K(ret));
       }
     } else {
-      if (OB_UNLIKELY(pktlen < ObMySQLPacket::MIN_CAPABILITY_SIZE)) {
+      if (OB_UNLIKELY(pktlen < ObMySQLPacket::MIN_CAPABILITY_SIZE)) { //长度小于最小能力大小
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("error ssl request packet", K(pktlen), K(ret));
       } else {
@@ -75,6 +79,19 @@ int ObMysqlProtocolProcessor::do_decode(ObSMConnection& conn, ObICSMemPool& pool
           4.when complete the authentication operations, the state is changed to CPE_AUTHED
           CPE_CONNECTED -> CPE_SSL_CONNECT -> CPE_CONNECTED -> CPE_AUTHED
           (2)do not use ssl
+          CPE_CONNECTED -> CPE_AUTHED
+        */
+       /* [latte]
+          connection_phase_ 状态转换
+          (1)使用 ssl:
+          1.当 tcp 连接建立时，状态初始化为 CPE_CONNECTED
+          2.如果客户端决定打开 ssl，则在解码第一个不完整的
+          登录请求数据包后，状态更改为 CPE_SSL_CONNECT，并且数据包将被丢弃（不由处理器处理）
+          3.在 ssl 握手完成后，在解码完整的登录请求
+          数据包后，状态更改为 CPE_CONNECTED 并将数据包传递给处理器（ObMPConnect）
+          4.当完成身份验证操作时，状态更改为 CPE_AUTHED
+          CPE_CONNECTED -> CPE_SSL_CONNECT -> CPE_CONNECTED -> CPE_AUTHED
+          (2)不使用 ssl
           CPE_CONNECTED -> CPE_AUTHED
         */
         if (conn.is_in_connected_phase()) {
@@ -105,6 +122,7 @@ int ObMysqlProtocolProcessor::do_decode(ObSMConnection& conn, ObICSMemPool& pool
     }
   } else {
     /* read at least a header size*/
+    //读取数据少于header头 （保存数据长度信息）
     next_read_bytes = header_size - (end - start);
   }
 

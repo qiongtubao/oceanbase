@@ -161,6 +161,11 @@ private:
   DISALLOW_COPY_AND_ASSIGN(ObSrvMySQLXlator);
 }; // end of class ObSrvMySQLXlator
 
+/**
+ *  服务提供者
+ *  rpc
+ *  mysql 
+ */
 class ObSrvXlator
     : public rpc::frame::ObReqTranslator
 {

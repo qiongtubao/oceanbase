@@ -415,7 +415,7 @@ ObSrvDeliver::ObSrvDeliver(ObiReqQHandler &qhandler,
 int ObSrvDeliver::init()
 {
   int ret = OB_SUCCESS;
-  if (OB_FAIL(init_queue_threads())) {
+  if (OB_FAIL(init_queue_threads())) { //初始化线程
     SERVER_LOG(ERROR, "init queue threads fail", K(ret));
   } else {
     SERVER_LOG(INFO, "init ObSrvDeliver done");
@@ -475,13 +475,13 @@ int ObSrvDeliver::init_queue_threads()
   int ret = OB_SUCCESS;
 
   // TODO: fufeng, make it configurable
-  if (OB_FAIL(create_queue_thread(lib::TGDefIDs::LeaseQueueTh, "LeaseQueueTh", lease_queue_))) {
-  } else if (OB_FAIL(create_queue_thread(lib::TGDefIDs::DDLQueueTh, "DDLQueueTh", ddl_queue_))) {
+  if (OB_FAIL(create_queue_thread(lib::TGDefIDs::LeaseQueueTh, "LeaseQueueTh", lease_queue_))) { //租约请求
+  } else if (OB_FAIL(create_queue_thread(lib::TGDefIDs::DDLQueueTh, "DDLQueueTh", ddl_queue_))) { //接收ddl请求 
   } else if (OB_FAIL(create_queue_thread(lib::TGDefIDs::DDLPQueueTh, PARALLEL_DDL_THREAD_NAME, ddl_parallel_queue_))) {
   } else if (OB_FAIL(create_queue_thread(lib::TGDefIDs::MysqlQueueTh,
-                                         "MysqlQueueTh", mysql_queue_))) {
+                                         "MysqlQueueTh", mysql_queue_))) {//除了ddl之后的mysql请求
   } else if (OB_FAIL(create_queue_thread(lib::TGDefIDs::DiagnoseQueueTh,
-                                         "DiagnoseQueueTh", diagnose_queue_))) {
+                                         "DiagnoseQueueTh", diagnose_queue_))) { //诊断请求
   } else {
     LOG_INFO("queue thread create successfully", K_(host));
   }

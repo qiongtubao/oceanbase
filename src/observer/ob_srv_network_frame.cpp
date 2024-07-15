@@ -44,7 +44,7 @@ using namespace oceanbase::obmysql;
 ObSrvNetworkFrame::ObSrvNetworkFrame(ObGlobalContext &gctx)
     : gctx_(gctx),
       xlator_(gctx),
-      request_qhandler_(xlator_),
+      request_qhandler_(xlator_), //内部使用xlator_
       deliver_(request_qhandler_, xlator_.get_session_handler(), gctx),
       rpc_handler_(deliver_),
       mysql_handler_(deliver_, gctx),
@@ -86,16 +86,22 @@ static int update_tcp_keepalive_parameters_for_sql_nio_server(int tcp_keepalive_
   return ret;
 }
 
+/**
+ * 初始化
+ */
 int ObSrvNetworkFrame::init()
 {
   int ret = OB_SUCCESS;
   const char* mysql_unix_path = "unix:run/sql.sock";
   const char* rpc_unix_path = "unix:run/rpc.sock";
+  //rpc 端口
   const uint32_t rpc_port = static_cast<uint32_t>(GCONF.rpc_port);
   ObNetOptions opts;
+  //io 线程数
   int io_cnt = static_cast<int>(GCONF.net_thread_count);
   // make net thread count adaptive
   if (0 == io_cnt) {
+    //默认线程数  最大64
     io_cnt = get_default_net_thread_count();
   }
   const int hp_io_cnt = static_cast<int>(GCONF.high_priority_net_thread_count);
@@ -104,6 +110,7 @@ int ObSrvNetworkFrame::init()
   opts.high_prio_rpc_io_cnt_ = hp_io_cnt;
   opts.mysql_io_cnt_ = io_cnt;
   opts.batch_rpc_io_cnt_ = io_cnt;
+  //是否使用ipv6
   opts.use_ipv6_ = GCONF.use_ipv6;
   //TODO(tony.wzh): fix opts.tcp_keepidle  negative
   opts.tcp_user_timeout_ = static_cast<int>(GCONF.dead_socket_detection_timeout);
@@ -119,22 +126,23 @@ int ObSrvNetworkFrame::init()
   LOG_INFO("io thread connection negotiation enabled!");
   negotiation_enable = 1;
 
+  //设置节点的ip地址
   deliver_.set_host(gctx_.self_addr());
 
-  if (OB_FAIL(request_qhandler_.init())) {
+  if (OB_FAIL(request_qhandler_.init())) { //[latte] 目前好像直接返回ok
     LOG_ERROR("init rpc request qhandler fail", K(ret));
 
-  } else if (OB_FAIL(deliver_.init())) {
+  } else if (OB_FAIL(deliver_.init())) { //[latte]创建请求处理的queue 队列绑定的请求在request_qhandler_中 handler会调用handlePacketQueue方法
     LOG_ERROR("init rpc deliverer fail", K(ret));
 
-  } else if (OB_FAIL(rpc_handler_.init())) {
+  } else if (OB_FAIL(rpc_handler_.init())) { //[latte]rcp事件处理初始化 直接返回ok
     LOG_ERROR("init rpc packet handler fail", K(ret));
 
   } else if (OB_FAIL(ob_rpc_intrusion_detect_patch(
                          rpc_handler_.ez_handler(),
                          gctx_.locality_manager_))) {
     LOG_ERROR("easy_handler_security_patch fail", K(ret));
-  } else if (OB_FAIL(net_.init(opts, negotiation_enable))) {
+  } else if (OB_FAIL(net_.init(opts, negotiation_enable))) { //libeasy 初始化核心是创建网络所需的网络I/O线程数量由rpc_io_cnt属性决定
     LOG_ERROR("init rpc easy network fail", K(ret));
   } else if (OB_FAIL(reload_ssl_config())) {
     LOG_ERROR("load_ssl_config fail", K(ret));

@@ -693,7 +693,7 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
   }
 
   if (!is_inited_) {
-    if (OB_ISNULL(rpc_eio_ = create_eio_(opts.rpc_io_cnt_, RPC_EIO_MAGIC, negotiation_enable))) {
+    if (OB_ISNULL(rpc_eio_ = create_eio_(opts.rpc_io_cnt_, RPC_EIO_MAGIC, negotiation_enable))) { //创建eio
       LOG_ERROR("create rpc easy io fail", K(ret));
       ret = OB_LIBEASY_ERROR;
     } else if (OB_FAIL(init_rpc_eio_(rpc_eio_, opts))) {
@@ -703,12 +703,12 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
       ret = OB_LIBEASY_ERROR;
     } else if (is_high_prio_rpc_enabled && OB_FAIL(init_rpc_eio_(high_prio_rpc_eio_, opts))) {
       LOG_ERROR("init high priority rpc easy io fail", K(ret));
-    } else if (OB_ISNULL(mysql_eio_ = create_eio_(opts.mysql_io_cnt_))) {
+    } else if (OB_ISNULL(mysql_eio_ = create_eio_(opts.mysql_io_cnt_))) { //创建mysql edio
       LOG_ERROR("create mysql easy io fail", K(ret));
       ret = OB_LIBEASY_ERROR;
     } else if (OB_FAIL(init_mysql_eio_(mysql_eio_, opts))) {
       LOG_ERROR("init mysql easy io fail", K(ret));
-    } else if (OB_ISNULL(mysql_unix_eio_ = create_eio_(MYSQL_UNIX_IOTH_COUNT))) {
+    } else if (OB_ISNULL(mysql_unix_eio_ = create_eio_(MYSQL_UNIX_IOTH_COUNT))) {//创建mysql unix edio 
       LOG_ERROR("create mysql unix easy io fail", K(ret));
       ret = OB_LIBEASY_ERROR;
     } else if (OB_FAIL(init_mysql_eio_(mysql_unix_eio_, opts))) {
@@ -728,6 +728,7 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
       easy_thread_pool_for_each(ioth, rpc_eio_->io_thread_pool, 0)
       {
         if (!OB_ISNULL(ioth)) {
+          //rpc 定时器 1s执行一次 rpc_easy_timer_cb_with_lbt
           ev_timer_init(&ioth->user_timer,
                         rpc_easy_timer_cb_with_lbt, EASY_STAT_INTERVAL, EASY_STAT_INTERVAL);
           ev_timer_start(ioth->loop, &(ioth->user_timer));
@@ -739,6 +740,7 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
         easy_thread_pool_for_each(ioth, high_prio_rpc_eio_->io_thread_pool, 0)
         {
           if (!OB_ISNULL(ioth)) {
+            //定时器1s执行一次 high_prio_rpc_easy_timer_cb_with_lbt
             ev_timer_init(&ioth->user_timer,
                           high_prio_rpc_easy_timer_cb_with_lbt, EASY_STAT_INTERVAL, EASY_STAT_INTERVAL);
             ev_timer_start(ioth->loop, &(ioth->user_timer));
@@ -750,6 +752,7 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
       easy_thread_pool_for_each(ioth, batch_rpc_eio_->io_thread_pool, 0)
       {
         if (!OB_ISNULL(ioth)) {
+          //batch rpc定时器 1s执行一次 batch_rpc_easy_timer_cb_with_lbt
           ev_timer_init(&ioth->user_timer,
                         batch_rpc_easy_timer_cb_with_lbt, EASY_STAT_INTERVAL, EASY_STAT_INTERVAL);
           ev_timer_start(ioth->loop, &(ioth->user_timer));
@@ -761,6 +764,7 @@ int ObNetEasy::init(const ObNetOptions &opts, uint8_t negotiation_enable)
       easy_thread_pool_for_each(ioth, mysql_eio_->io_thread_pool, 0)
       {
         if (!OB_ISNULL(ioth)) {
+          //mysql 定时器 1s执行一次 mysql_easy_timer_cb
           ev_timer_init(&ioth->user_timer,
                         mysql_easy_timer_cb, EASY_STAT_INTERVAL, EASY_STAT_INTERVAL);
           ev_timer_start(ioth->loop, &(ioth->user_timer));

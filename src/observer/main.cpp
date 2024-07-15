@@ -430,8 +430,10 @@ static void print_all_thread(const char* desc)
   MPRINT("============= [%s] finish to show unstopped thread =============", desc);
 }
 
+//一切开始的地方
 int main(int argc, char *argv[])
 {
+  //初始化配置前暂时限制内存
   // temporarily unlimited memory before init config
   set_memory_limit(INT_MAX64);
 
@@ -508,11 +510,14 @@ int main(int argc, char *argv[])
   setlocale(LC_NUMERIC, "en_US.UTF-8");
   // memset(&opts, 0, sizeof (opts));
   opts.log_level_ = OB_LOG_LEVEL_WARN;
+  //解析传参
   parse_opts(argc, argv, opts);
 
+  //顺序执行
   if (OB_FAIL(check_uid_before_start(CONF_DIR))) {
     MPRINT("Fail check_uid_before_start, please use the initial user to start observer!");
   } else if (OB_FAIL(FileDirectoryUtils::create_full_path(PID_DIR))) {
+    //创建run文件夹失败
     MPRINT("create pid dir fail: ./run/");
   } else if (OB_FAIL(FileDirectoryUtils::create_full_path(LOG_DIR))) {
     MPRINT("create log dir fail: ./log/");
@@ -576,19 +581,22 @@ int main(int argc, char *argv[])
       // new worker with it.
       lib::Worker worker;
       lib::Worker::set_worker_to_thread_local(&worker);
+      //调用Observer 类的get_instance 方法得到ObServer实例(线程)
       ObServer &observer = ObServer::get_instance();
       LOG_INFO("observer starts", "observer_version", PACKAGE_STRING);
       // to speed up bootstrap phase, need set election INIT TS
       // to count election keep silence time as soon as possible after observer process started
       ATOMIC_STORE(&palf::election::INIT_TS, palf::election::get_monotonic_ts());
-      if (OB_FAIL(observer.init(opts, log_cfg))) {
+      //根据命令行参数 和日志配置初始化Observer
+      if (OB_FAIL(observer.init(opts, log_cfg))) { //初始化observer
         LOG_ERROR("observer init fail", K(ret));
-      } else if (OB_FAIL(observer.start())) {
+      } else if (OB_FAIL(observer.start())) { //调用start方法运行Observer进程
         LOG_ERROR("observer start fail", K(ret));
-      } else if (OB_FAIL(observer.wait())) {
+      } else if (OB_FAIL(observer.wait())) { //调用wait等待停止信号，发现停止信号后调用stop停止Observer中各个子系统
         LOG_ERROR("observer wait fail", K(ret));
       }
       print_all_thread("BEFORE_DESTROY");
+      //wait结束后 调用destroy 关闭Observer
       observer.destroy();
     }
     curl_global_cleanup();

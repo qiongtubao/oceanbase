@@ -120,6 +120,7 @@ ObSrvNetworkFrame::get_xlator() {
 static int get_default_net_thread_count()
 {
   int cnt = 1;
+  //获得cpu个数
   int cpu_num = static_cast<int>(get_cpu_count());
 
   if (cpu_num <= 4) {
@@ -131,6 +132,7 @@ static int get_default_net_thread_count()
   } else if (cpu_num <= 32) {
     cnt = 7;
   } else {
+    //最小8  最大64
     cnt = max(8, cpu_num / 6);
     cnt = min(cnt, 64);
   }
