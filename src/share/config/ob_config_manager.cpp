@@ -41,7 +41,7 @@ int ObConfigManager::base_init()
   int ret = OB_SUCCESS;
   if (OB_FAIL(system_config_.init())) {
     LOG_ERROR("init system config failed", K(ret));
-  } else if (OB_FAIL(server_config_.init(system_config_))) {
+  } else if (OB_FAIL(server_config_.init(system_config_))) { //设置system config
     LOG_ERROR("init server config failed", K(ret));
   }
   update_task_.config_mgr_ = this;
@@ -52,7 +52,7 @@ int ObConfigManager::init(const ObAddr &server)
 {
   int ret = OB_SUCCESS;
   self_ = server;
-  if (OB_FAIL(TG_START(lib::TGDefIDs::CONFIG_MGR))) {
+  if (OB_FAIL(TG_START(lib::TGDefIDs::CONFIG_MGR))) { //初始化 CONFIG_MGR
     LOG_WARN("init timer failed", K(ret));
   } else {
     inited_ = true;
@@ -120,10 +120,10 @@ int ObConfigManager::load_config(const char *path)
   char *buf = NULL;
   if (OB_FAIL(ret)) {
   } else if (OB_ISNULL(buf = static_cast<char *>(ob_malloc(
-      OB_MAX_PACKET_LENGTH, ObModIds::OB_BUFFER)))) {
+      OB_MAX_PACKET_LENGTH, ObModIds::OB_BUFFER)))) { //创建buf
     ret = OB_ALLOCATE_MEMORY_FAILED;
     LOG_ERROR("alloc buffer failed", LITERAL_K(OB_MAX_PACKET_LENGTH), K(ret));
-  } else if (OB_ISNULL(fp = fopen(path, "rb"))) {
+  } else if (OB_ISNULL(fp = fopen(path, "rb"))) {  //打开文件
     if (ENOENT == errno) {
       ret = OB_FILE_NOT_EXIST;
       LOG_INFO("Config file doesn't exist, read from command line", K(path), K(ret));
@@ -133,18 +133,18 @@ int ObConfigManager::load_config(const char *path)
     }
   } else {
     LOG_INFO("Using config file", K(path));
-    MEMSET(buf, 0, OB_MAX_PACKET_LENGTH);
-    int64_t len = fread(buf, 1, OB_MAX_PACKET_LENGTH, fp);
+    MEMSET(buf, 0, OB_MAX_PACKET_LENGTH); //清空0
+    int64_t len = fread(buf, 1, OB_MAX_PACKET_LENGTH, fp); //读取文件
     int64_t pos = 0;
 
-    if (OB_UNLIKELY(0 != ferror(fp))) { // read with error
+    if (OB_UNLIKELY(0 != ferror(fp))) { // read with error 读取错误
       ret = OB_IO_ERROR;
       LOG_ERROR("Read config file error", K(path), K(ret));
-    } else if (OB_UNLIKELY(0 == feof(fp))) { // not end of file
+    } else if (OB_UNLIKELY(0 == feof(fp))) { // not end of file 文件太大
       ret = OB_BUF_NOT_ENOUGH;
       LOG_ERROR("Config file is too long", K(path), K(ret));
     } else {
-      ret = server_config_.deserialize_with_compat(buf, len, pos);
+      ret = server_config_.deserialize_with_compat(buf, len, pos); //序列化加兼容
     }
     if (OB_FAIL(ret)) {
       LOG_ERROR("Deserialize server config failed", K(path), K(ret));
@@ -152,13 +152,13 @@ int ObConfigManager::load_config(const char *path)
       ret = OB_DESERIALIZE_ERROR;
       LOG_ERROR("Deserialize server config failed", K(path), K(ret));
     }
-    if (OB_UNLIKELY(0 != fclose(fp))) {
+    if (OB_UNLIKELY(0 != fclose(fp))) { //关闭文件
       ret = OB_IO_ERROR;
       LOG_ERROR("Close config file failed", K(ret));
     }
   }
   if (OB_LIKELY(NULL != buf)) {
-    ob_free(buf);
+    ob_free(buf); //释放内存
     buf = NULL;
   }
 

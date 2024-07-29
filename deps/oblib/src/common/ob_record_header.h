@@ -45,13 +45,13 @@ struct ObRecordHeader
 {
   static const int16_t MAGIC_NUMER = static_cast<int16_t>(0xB0CC);
 
-  int16_t magic_;          // magic number
-  int16_t header_length_;  // header length
-  int16_t version_;        // version
-  int16_t header_checksum_;// header checksum
-  int64_t timestamp_;       //
-  int32_t data_length_;    // length before compress
-  int32_t data_zlength_;   // length after compress, if without compresssion
+  int16_t magic_;          // magic number 
+  int16_t header_length_;  // header length header长度
+  int16_t version_;        // version 版本
+  int16_t header_checksum_;// header checksum 
+  int64_t timestamp_;       //时间戳
+  int32_t data_length_;    // length before compress 压缩前长度
+  int32_t data_zlength_;   // length after compress, if without compresssion  压缩后长度
   // data_length_= data_zlength_
   int64_t data_checksum_;  // record checksum
   ObRecordHeader();

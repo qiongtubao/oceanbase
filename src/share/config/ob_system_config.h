@@ -73,7 +73,7 @@ inline int ObSystemConfig::clear()
 inline int ObSystemConfig::init()
 {
   int ret = OB_SUCCESS;
-  if (OB_FAIL(map_.create(MAP_SIZE, ObModIds::OB_HASH_BUCKET_SYS_CONF))) {
+  if (OB_FAIL(map_.create(MAP_SIZE, ObModIds::OB_HASH_BUCKET_SYS_CONF))) { //创建hash个数512 
     OB_LOG(WARN, "create params_map_ fail", K(ret));
   }
   return ret;

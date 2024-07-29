@@ -1059,7 +1059,7 @@ int str_cmp(const void *v1, const void *v2)
   }
   return ret;
 }
-
+//从/proc/net/route 文件中读取信息来确定系统的默认网关接口名称。
 const char* get_default_if()
 {
   static char ifname[128] = {};
@@ -1070,11 +1070,11 @@ const char* get_default_if()
     char dest[16] = {};
     char gw[16] = {};
     char remain[1024+1] = {};
-    if (1 == fscanf(file, "%1024[^\n]\n", remain)) {
+    if (1 == fscanf(file, "%1024[^\n]\n", remain)) { //使用 fscanf 忽略文件的第一行，这是因为第一行通常是表头，不包含路由信息。
       while (1) {
         int r = fscanf(file,
                        "%127s\t%15s\t%15s\t%1023[^\n]\n",
-                       ifname, dest, gw, remain);
+                       ifname, dest, gw, remain); //使用 fscanf 逐行读取文件中的数据。 每行包含四个字段：接口名称、目的地地址、网关地址和其余部分。如果网关地址 (gw) 不为 00000000（即不是本地链路），则认为这是默认网关，并记录接口名称。
         if (r < 4) {
           break;
         }

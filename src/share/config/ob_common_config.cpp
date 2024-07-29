@@ -297,20 +297,20 @@ int ObCommonConfig::add_extra_config(const char *config_str,
   char *token = NULL;
   bool split_by_comma = false;
 
-  if (OB_ISNULL(config_str)) {
+  if (OB_ISNULL(config_str)) { //是空
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("config str is null", K(ret));
-  } else if ((config_str_length = static_cast<int64_t>(STRLEN(config_str))) >= MAX_OPTS_LENGTH) {
+  } else if ((config_str_length = static_cast<int64_t>(STRLEN(config_str))) >= MAX_OPTS_LENGTH) { //长度太大
     ret = OB_BUF_NOT_ENOUGH;
     LOG_ERROR("Extra config is too long", K(ret));
-  } else if (OB_ISNULL(buf = new (std::nothrow) char[config_str_length + 1])) {
+  } else if (OB_ISNULL(buf = new (std::nothrow) char[config_str_length + 1])) { //创建buf
     ret = OB_ALLOCATE_MEMORY_FAILED;
     LOG_ERROR("ob tc malloc memory for buf fail", K(ret));
   } else {
-    MEMCPY(buf, config_str, config_str_length);
+    MEMCPY(buf, config_str, config_str_length); //buf中写入config 
     buf[config_str_length] = '\0';
-    token = STRTOK_R(buf, "\n", &saveptr);
-    if (0 == STRLEN(saveptr)) {
+    token = STRTOK_R(buf, "\n", &saveptr); //函数分隔是一个字符  比如"ab" 分隔a或者b
+    if (0 == STRLEN(saveptr)) {//如果用\n还行分隔失败就用,分隔  （comma）
       token = STRTOK_R(buf, ",\n", &saveptr);
       split_by_comma = true;
     }
@@ -322,53 +322,53 @@ int ObCommonConfig::add_extra_config(const char *config_str,
       const char *name = NULL;
       const char *value = NULL;
       ObConfigItem *const *pp_item = NULL;
-      if (OB_ISNULL(name = STRTOK_R(token, "=", &saveptr_one))) {
+      if (OB_ISNULL(name = STRTOK_R(token, "=", &saveptr_one))) { //用=分隔
         ret = OB_INVALID_CONFIG;
         LOG_ERROR("Invalid config string", K(token), K(ret));
-      } else if (OB_ISNULL(saveptr_one) || OB_UNLIKELY('\0' == *(value = saveptr_one))) {
+      } else if (OB_ISNULL(saveptr_one) || OB_UNLIKELY('\0' == *(value = saveptr_one))) { //空 或者\0
         LOG_INFO("Empty config string", K(token), K(name));
         // ret = OB_INVALID_CONFIG;
         name = "";
       }
       if (OB_SUCC(ret)) {
-        const int value_len = static_cast<int>(strlen(value));
+        const int value_len = static_cast<int>(strlen(value));//字符串长度
         // hex2cstring -> value_len / 2 + 1
         // '\0' -> 1
         const int external_info_val_len = value_len / 2 + 1 + 1;
-        char *external_info_val = (char*)ob_malloc(external_info_val_len, "temp");
+        char *external_info_val = (char*)ob_malloc(external_info_val_len, "temp");//申请内存  temp
         DEFER(if (external_info_val != nullptr) ob_free(external_info_val););
         if (OB_ISNULL(external_info_val)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
           LOG_ERROR("failed to alloc", K(ret));
         } else if (FALSE_IT(external_info_val[0] = '\0')) {
-        } else if (OB_ISNULL(pp_item = container_.get(ObConfigStringKey(name)))) {
+        } else if (OB_ISNULL(pp_item = container_.get(ObConfigStringKey(name)))) {//container_ 获得item
           ret = OB_SUCCESS;
           LOG_WARN("Invalid config string, no such config item", K(name), K(value), K(ret));
-        } else if (external_kms_info_cfg.case_compare(name) == 0
-                   || ssl_external_kms_info_cfg.case_compare(name) == 0) {
+        } else if (external_kms_info_cfg.case_compare(name) == 0 //external_kms_info
+                   || ssl_external_kms_info_cfg.case_compare(name) == 0) { //ssl_external_kms_info 这2个key 转换成hex字符串
           if (OB_FAIL(common::hex_to_cstr(value, value_len,
-              external_info_val, external_info_val_len))) {
+              external_info_val, external_info_val_len))) {//16进数字转换成字符串失败
             LOG_ERROR("fail to hex to cstr", K(ret));
           } else {
             value = external_info_val;
           }
         }
-        if (OB_FAIL(ret) || OB_ISNULL(pp_item)) {
-        } else if (!(*pp_item)->set_value(value)) {
+        if (OB_FAIL(ret) || OB_ISNULL(pp_item)) { //item 是空
+        } else if (!(*pp_item)->set_value(value)) {//设置value失败
           ret = OB_INVALID_CONFIG;
           LOG_ERROR("Invalid config value", K(name), K(value), K(ret));
-        } else if (check_config && (!(*pp_item)->check_unit(value) || !(*pp_item)->check())) {
+        } else if (check_config && (!(*pp_item)->check_unit(value) || !(*pp_item)->check())) { //配置验证
           ret = OB_INVALID_CONFIG;
           const char* range = (*pp_item)->range();
-          if (OB_ISNULL(range) || strlen(range) == 0) {
+          if (OB_ISNULL(range) || strlen(range) == 0) { 
             LOG_ERROR("Invalid config, value out of range", K(name), K(value), K(ret));
-          } else {
+          } else { //打印范围 最大最小值
             _LOG_ERROR("Invalid config, value out of %s (for reference only). name=%s, value=%s, ret=%d", range, name, value, ret);
           }
         } else {
-          (*pp_item)->set_version(version);
-          LOG_INFO("Load config succ", K(name), K(value));
-          if (0 == compatible_cfg.case_compare(name)) {
+          (*pp_item)->set_version(version);//设置版本
+          LOG_INFO("Load config succ", K(name), K(value)); 
+          if (0 == compatible_cfg.case_compare(name)) { //compatible  兼容  打印一下
             FLOG_INFO("[COMPATIBLE] load data_version from config file",
                       KR(ret), "tenant_id", get_tenant_id(),
                       "version", (*pp_item)->version(),
@@ -383,14 +383,14 @@ int ObCommonConfig::add_extra_config(const char *config_str,
     };
     // init enable_production_mode at first
     while (OB_SUCC(ret) && OB_NOT_NULL(token)) {
-      if (strncmp(token, "enable_production_mode=", 23) == 0) {
+      if (strncmp(token, "enable_production_mode=", 23) == 0) {//一直找到enable_production_mode= 
         func();
         break;
       }
       token = (true == split_by_comma) ? STRTOK_R(NULL, ",\n", &saveptr) : STRTOK_R(NULL, "\n", &saveptr);
     }
-    // reset
-    MEMCPY(buf, config_str, config_str_length);
+    // reset 重置 这次为了找到enable_production_mode:
+    MEMCPY(buf, config_str, config_str_length); //重置config 设置成buf中
     buf[config_str_length] = '\0';
     saveptr = nullptr;
     token = STRTOK_R(buf, "\n", &saveptr);

@@ -164,7 +164,7 @@ const char *ObServerUtils::build_syslog_file_info(const common::ObAddr &addr)
 
   // OS info
   struct utsname uts;
-  if (0 != ::uname(&uts)) {
+  if (0 != ::uname(&uts)) { //获得系统数据
     ret = OB_ERR_SYS;
     LOG_WARN("call uname failed");
   }
@@ -175,7 +175,7 @@ const char *ObServerUtils::build_syslog_file_info(const common::ObAddr &addr)
   if (OB_SUCC(ret)) {
     time_t t = time(NULL);
     struct tm lt;
-    if (NULL == localtime_r(&t, &lt)) {
+    if (NULL == localtime_r(&t, &lt)) { //时间戳 线程安全的
       ret = OB_ERR_SYS;
       LOG_WARN("call localtime failed");
     } else {
@@ -189,7 +189,7 @@ const char *ObServerUtils::build_syslog_file_info(const common::ObAddr &addr)
                      "address: %s, observer version: %s, revision: %s, "
                      "sysname: %s, os release: %s, machine: %s, tz GMT offset: %02d:%02d",
                      self_addr, PACKAGE_STRING, build_version(),
-                     uts.sysname, uts.release, uts.machine, gmtoff_hour, gmtoff_minute);
+                     uts.sysname, uts.release, uts.machine, gmtoff_hour, gmtoff_minute); //返回 字符串
     if (n <= 0) {
       ret = OB_ERR_SYS;
       LOG_WARN("snprintf failed");

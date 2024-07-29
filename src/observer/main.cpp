@@ -440,11 +440,13 @@ int main(int argc, char *argv[])
 #ifdef ENABLE_SANITY
   backtrace_symbolize_func = oceanbase::common::backtrace_symbolize;
 #endif
+  //获得当前线程名  如果失败就设置成observer
   if (0 != pthread_getname_np(pthread_self(), ob_get_tname(), OB_THREAD_NAME_BUF_LEN)) {
     snprintf(ob_get_tname(), OB_THREAD_NAME_BUF_LEN, "observer");
   }
   ObStackHeaderGuard stack_header_guard;
   // just take effect in observer
+  //记录初始内存
 #ifndef OB_USE_ASAN
   init_malloc_hook();
 #endif
@@ -453,16 +455,22 @@ int main(int argc, char *argv[])
   /**
     signal handler stack
    */
+  //这里分配了一段大小为 SIG_STACK_SIZE 的内存，这通常是足够大的内存区域，用于存放信号处理函数的堆栈。
   void *ptr = malloc(SIG_STACK_SIZE);
+  //这行代码是一个断言，检查 malloc 是否成功分配了内存。如果没有分配成功（ptr 为 nullptr），程序将通过 abort() 函数终止。
   abort_unless(ptr != nullptr);
   stack_t nss;
   stack_t oss;
   bzero(&nss, sizeof(nss));
   bzero(&oss, sizeof(oss));
+  //定义了两个 stack_t 类型的结构体变量 nss 和 oss，分别代表新信号堆栈和旧信号堆栈。bzero 函数用于将这两个结构体变量清零，确保它们的初始状态是已知的。
   nss.ss_sp = ptr;
   nss.ss_size = SIG_STACK_SIZE;
+  //这两行设置了 nss 结构体中的信号堆栈指针 ss_sp 和堆栈大小 ss_size。ss_sp 指向之前 malloc 分配的内存起始地址，ss_size 设置为 SIG_STACK_SIZE。
   abort_unless(0 == sigaltstack(&nss, &oss));
+  //调用 sigaltstack 函数来设置替代信号堆栈。这个函数将 nss 结构体的内容设置为新的信号堆栈，并将旧的信号堆栈信息存储在 oss 结构体中。如果 sigaltstack 函数返回非零值，表示设置失败，abort_unless 断言将触发 abort() 函数终止程序。
   DEFER(sigaltstack(&oss, nullptr));
+  //DEFER 宏在这里用于确保在函数返回之前，sigaltstack 函数再次被调用，将信号堆栈恢复为原来的设置。这称为 RAII（Resource Acquisition Is Initialization）模式的一种实现，确保了资源在作用域结束时被正确清理。
   ::oceanbase::common::g_redirect_handler = true;
 #endif
 
@@ -470,6 +478,7 @@ int main(int argc, char *argv[])
   register_gperf_handlers();
 #endif
   // Fake routines for current thread.
+  // 当前线程的虚假例程。
   easy_pool_set_allocator(ob_easy_realloc);
   ev_set_allocator(ob_easy_realloc);
 
@@ -535,12 +544,12 @@ int main(int argc, char *argv[])
     CURLcode curl_code = curl_global_init(CURL_GLOBAL_ALL);
     OB_ASSERT(CURLE_OK == curl_code);
 
-    const char *syslog_file_info = ObServerUtils::build_syslog_file_info(ObAddr());
+    const char *syslog_file_info = ObServerUtils::build_syslog_file_info(ObAddr());//获得系统 时间等数据
     easy_log_level = EASY_LOG_INFO;
     OB_LOGGER.set_log_level(opts.log_level_);
     OB_LOGGER.set_max_file_size(LOG_FILE_SIZE);
     OB_LOGGER.set_new_file_info(syslog_file_info);
-    OB_LOGGER.set_file_name(LOG_FILE_NAME, false, true, RS_LOG_FILE_NAME, ELECT_ASYNC_LOG_FILE_NAME, TRACE_LOG_FILE_NAME, audit_file);
+    OB_LOGGER.set_file_name(LOG_FILE_NAME, false, true, RS_LOG_FILE_NAME, ELECT_ASYNC_LOG_FILE_NAME, TRACE_LOG_FILE_NAME, audit_file); //创建日志
     ObPLogWriterCfg log_cfg;
     // if (OB_SUCCESS != (ret = ASYNC_LOG_INIT(ELECT_ASYNC_LOG_FILE_NAME, opts.log_level_, true))) {
     //   LOG_ERROR("election async log init error.", K(ret));
@@ -568,19 +577,19 @@ int main(int argc, char *argv[])
     ObProcMaps::get_instance().load_maps();
 
     static const int DEFAULT_MMAP_MAX_VAL = 1024 * 1024 * 1024;
-    mallopt(M_MMAP_MAX, DEFAULT_MMAP_MAX_VAL);
-    mallopt(M_ARENA_MAX, 1); // disable malloc multiple arena pool
+    mallopt(M_MMAP_MAX, DEFAULT_MMAP_MAX_VAL); //设置mmap使用最大次数
+    mallopt(M_ARENA_MAX, 1); // disable malloc multiple arena pool 设置arena池子一个
 
     // turn warn log on so that there's a observer.log.wf file which
     // records all WARN and ERROR logs in log directory.
-    ObWarningBuffer::set_warn_log_on(true);
+    ObWarningBuffer::set_warn_log_on(true); //wf 只保存WARN和ERROR
     if (OB_SUCC(ret)) {
       // Create worker to make this thread having a binding
       // worker. When ObThWorker is creating, it'd be aware of this
       // thread has already had a worker, which can prevent binding
       // new worker with it.
       lib::Worker worker;
-      lib::Worker::set_worker_to_thread_local(&worker);
+      lib::Worker::set_worker_to_thread_local(&worker); //设置现在线程
       //调用Observer 类的get_instance 方法得到ObServer实例(线程)
       ObServer &observer = ObServer::get_instance();
       LOG_INFO("observer starts", "observer_version", PACKAGE_STRING);

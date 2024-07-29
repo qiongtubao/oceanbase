@@ -202,7 +202,7 @@ double ObServerConfig::get_sys_tenant_default_max_cpu()
   }
   return max_cpu;
 }
-
+//序列化还要做兼容
 int ObServerConfig::deserialize_with_compat(const char *buf, const int64_t data_len, int64_t &pos)
 {
   int ret = OB_SUCCESS;
@@ -221,22 +221,22 @@ int ObServerConfig::deserialize_with_compat(const char *buf, const int64_t data_
       pos = saved_pos;
       ObRecordHeader header;
       const char *const p_header = buf + pos;
-      const char *const p_data = p_header + header.get_serialize_size();
+      const char *const p_data = p_header + header.get_serialize_size(); //header的长度
       const int64_t pos_data = pos + header.get_serialize_size();
-      if (OB_FAIL(header.deserialize(buf, data_len, pos))) {
+      if (OB_FAIL(header.deserialize(buf, data_len, pos))) { //解析header DEFINE_DESERIALIZE(ObRecordHeader)
         LOG_ERROR("deserialize header failed", K(ret));
-      } else if (OB_FAIL(header.check_header_checksum())) {
+      } else if (OB_FAIL(header.check_header_checksum())) { //验证sum
         LOG_ERROR("check header checksum failed", K(ret));
-      } else if (OB_CONFIG_MAGIC != header.magic_) {
+      } else if (OB_CONFIG_MAGIC != header.magic_) { //为什么？一定是-17186
         ret = OB_INVALID_DATA;
         LOG_ERROR("check magic number failed", K_(header.magic), K(ret));
-      } else if (data_len - pos_data != header.data_zlength_) {
+      } else if (data_len - pos_data != header.data_zlength_) { //验证长度是否一致
         ret = OB_INVALID_DATA;
         LOG_ERROR("check data len failed",
                   K(data_len), K(pos_data), K_(header.data_zlength), K(ret));
-      } else if (OB_FAIL(header.check_payload_checksum(p_data, data_len - pos_data))) {
+      } else if (OB_FAIL(header.check_payload_checksum(p_data, data_len - pos_data))) { //crc64
         LOG_ERROR("check data checksum failed", K(ret));
-      } else if (OB_FAIL(add_extra_config(buf + pos, 0, false))) {
+      } else if (OB_FAIL(add_extra_config(buf + pos, 0, false))) {//额外配置
         LOG_ERROR("Read server config failed", K(ret));
       } else {
         pos += header.data_length_;

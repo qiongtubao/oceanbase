@@ -185,23 +185,23 @@ public:
   }
   virtual ~ObServerOptions() {}
 
-  int rpc_port_;
-  int elect_port_;
-  int mysql_port_;
-  const char *home_;
-  const char *zone_;
-  bool nodaemon_;
-  const char *optstr_;
-  const char *devname_;
-  const char *rs_list_;
-  const char *appname_;
-  int64_t cluster_id_;
-  const char *data_dir_;
-  const char *startup_mode_;
-  int8_t log_level_;
-  bool use_ipv6_;
-  int64_t flashback_scn_;
-  const char *local_ip_;
+  int rpc_port_; //rpc端口号
+  int elect_port_; //选举端口号
+  int mysql_port_;//mysql端口号
+  const char *home_; //home
+  const char *zone_; //区域
+  bool nodaemon_;  //是否开启守护进程 -N
+  const char *optstr_; //各种参数
+  const char *devname_; //开发名词？
+  const char *rs_list_; //rootservice 列表
+  const char *appname_; //应用名
+  int64_t cluster_id_; //集群名
+  const char *data_dir_; //文件夹
+  const char *startup_mode_; //启动模式
+  int8_t log_level_; //日志等级
+  bool use_ipv6_; //是否是ipv6
+  int64_t flashback_scn_; //序列号？
+  const char *local_ip_; //本地ip
 };
 
 enum ObServerMode {

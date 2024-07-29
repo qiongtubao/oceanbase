@@ -51,7 +51,7 @@ int ObRecordHeader::check_header_checksum() const
   format_i32(data_length_, checksum);
   format_i32(data_zlength_, checksum);
   format_i64(data_checksum_, checksum);
-  if (0 != checksum) {
+  if (0 != checksum) { //为什么是0？
     ret = OB_CHECKSUM_ERROR;
     COMMON_LOG(WARN, "record check checksum failed.", K(*this), K(ret));
   }

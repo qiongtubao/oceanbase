@@ -257,7 +257,7 @@ int ObServer::init(const ObServerOptions &opts, const ObPLogWriterCfg &log_cfg)
   FLOG_INFO("[OBSERVER_NOTICE] start to init observer");
   int ret = OB_SUCCESS;
   opts_ = opts;
-  scramble_rand_.init(static_cast<uint64_t>(start_time_), static_cast<uint64_t>(start_time_ / 2));
+  scramble_rand_.init(static_cast<uint64_t>(start_time_), static_cast<uint64_t>(start_time_ / 2)); //设置随机参数
 
   // server parameters be inited here.
   if (OB_FAIL(init_config())) {
@@ -1744,27 +1744,27 @@ int ObServer::init_config()
   // set dump path
   const char *dump_path = "etc/observer.config.bin";
   config_mgr_.set_dump_path(dump_path);
-  if (OB_FILE_NOT_EXIST == (ret = config_mgr_.load_config())) {
+  if (OB_FILE_NOT_EXIST == (ret = config_mgr_.load_config())) {//加载配置
     has_config_file = false;
     ret = OB_SUCCESS;
   }
 
-  if (opts_.rpc_port_) {
+  if (opts_.rpc_port_) {//rpc端口号
     config_.rpc_port = opts_.rpc_port_;
-    config_.rpc_port.set_version(start_time_);
+    config_.rpc_port.set_version(start_time_); 
   }
 
-  if (opts_.mysql_port_) {
+  if (opts_.mysql_port_) { //mysql端口号
     config_.mysql_port = opts_.mysql_port_;
     config_.mysql_port.set_version(start_time_);
   }
 
-  if (opts_.local_ip_ && strlen(opts_.local_ip_) > 0) {
+  if (opts_.local_ip_ && strlen(opts_.local_ip_) > 0) {//本地ip
     config_.local_ip.set_value(opts_.local_ip_);
     config_.local_ip.set_version(start_time_);
   }
 
-  if (opts_.devname_ && strlen(opts_.devname_) > 0) {
+  if (opts_.devname_ && strlen(opts_.devname_) > 0) { //设置网关
     config_.devname.set_value(opts_.devname_);
     config_.devname.set_version(start_time_);
   } else {
@@ -1780,27 +1780,27 @@ int ObServer::init_config()
     }
   }
 
-  if (opts_.zone_ && strlen(opts_.zone_) > 0) {
+  if (opts_.zone_ && strlen(opts_.zone_) > 0) { //区域
     config_.zone.set_value(opts_.zone_);
     config_.zone.set_version(start_time_);
   }
 
-  if (opts_.rs_list_ && strlen(opts_.rs_list_) > 0) {
+  if (opts_.rs_list_ && strlen(opts_.rs_list_) > 0) { //rootservice list
     config_.rootservice_list.set_value(opts_.rs_list_);
     config_.rootservice_list.set_version(start_time_);
   }
 
-  if (opts_.startup_mode_) {
+  if (opts_.startup_mode_) {  //启动模式
     config_.ob_startup_mode.set_value(opts_.startup_mode_);
     config_.ob_startup_mode.set_version(start_time_);
     LOG_INFO("mode is not null", "mode", opts_.startup_mode_);
   }
   // update gctx_.startup_mode_
-  if (FAILEDx(parse_mode())) {
+  if (FAILEDx(parse_mode())) { //默认 NORMAL_MODE 
     LOG_ERROR("parse_mode failed", KR(ret));
   }
 
-  config_.syslog_level.set_value(OB_LOGGER.get_level_str());
+  config_.syslog_level.set_value(OB_LOGGER.get_level_str()); //日志等级
 
   if (opts_.optstr_ && strlen(opts_.optstr_) > 0) {
     if (FAILEDx(config_.add_extra_config(opts_.optstr_, start_time_))) {
@@ -1808,7 +1808,7 @@ int ObServer::init_config()
     }
   }
 
-  if (opts_.appname_ && strlen(opts_.appname_) > 0) {
+  if (opts_.appname_ && strlen(opts_.appname_) > 0) {//app 名
     config_.cluster.set_value(opts_.appname_);
     config_.cluster.set_version(start_time_);
     if (FAILEDx(set_cluster_name_hash(ObString::make_string(opts_.appname_)))) {
@@ -1817,7 +1817,7 @@ int ObServer::init_config()
     }
   }
 
-  if (opts_.cluster_id_ >= 0) {
+  if (opts_.cluster_id_ >= 0) { //集群id
     // Strictly here, everything that is less than zero is ignored, not when it is equal to -1.
     config_.cluster_id = opts_.cluster_id_;
     config_.cluster_id.set_version(start_time_);
@@ -1827,13 +1827,13 @@ int ObServer::init_config()
     LOG_INFO("set CLUSTER_ID for rpc", "cluster_id", config_.cluster_id.get_value());
   }
 
-  if (opts_.data_dir_ && strlen(opts_.data_dir_) > 0) {
+  if (opts_.data_dir_ && strlen(opts_.data_dir_) > 0) { //数据文件夹
     config_.data_dir.set_value(opts_.data_dir_);
     config_.data_dir.set_version(start_time_);
   }
 
   // The command line is specified, subject to the command line
-  if (opts_.use_ipv6_) {
+  if (opts_.use_ipv6_) { //是否使用ipv6
     config_.use_ipv6 = opts_.use_ipv6_;
     config_.use_ipv6.set_version(start_time_);
   }
@@ -1841,7 +1841,7 @@ int ObServer::init_config()
   config_.print();
 
   // local_ip is a critical parameter, if it is set, then verify it; otherwise, set it via devname.
-  if (strlen(config_.local_ip) > 0) {
+  if (strlen(config_.local_ip) > 0) { //本地ip
     char if_name[MAX_IFNAME_LENGTH] = { '\0' };
     bool has_found = false;
     if (OB_SUCCESS != obsys::ObNetUtil::get_ifname_by_addr(config_.local_ip, if_name, sizeof(if_name), has_found)) {
@@ -1858,9 +1858,9 @@ int ObServer::init_config()
                         // unconditionally call set_value to ensure that devname is written to the configuration file.
     }
   } else {
-    if (config_.use_ipv6) {
+    if (config_.use_ipv6) { //使用ipv6
       char ipv6[MAX_IP_ADDR_LENGTH] = { '\0' };
-      if (0 != obsys::ObNetUtil::get_local_addr_ipv6(config_.devname, ipv6, sizeof(ipv6))) {
+      if (0 != obsys::ObNetUtil::get_local_addr_ipv6(config_.devname, ipv6, sizeof(ipv6))) {//获得ipv6
         ret = OB_ERROR;
         _LOG_ERROR("call get_local_addr_ipv6 failed, devname:%s, errno:%d.", config_.devname.get_value(), errno);
       } else {
@@ -1869,9 +1869,9 @@ int ObServer::init_config()
         _LOG_INFO("set local_ip via devname, local_ip:%s, devname:%s.", ipv6, config_.devname.get_value());
       }
     } else {
-      uint32_t ipv4_binary = obsys::ObNetUtil::get_local_addr_ipv4(config_.devname);
+      uint32_t ipv4_binary = obsys::ObNetUtil::get_local_addr_ipv4(config_.devname); //获得ipv4
       char ipv4[INET_ADDRSTRLEN] = { '\0' };
-      if (nullptr == inet_ntop(AF_INET, (void *)&ipv4_binary, ipv4, sizeof(ipv4))) {
+      if (nullptr == inet_ntop(AF_INET, (void *)&ipv4_binary, ipv4, sizeof(ipv4))) { //用于将网络地址（IP 地址）从二进制格式转换为点分十进制字符串格式的函数
         ret = OB_ERROR;
         _LOG_ERROR("call inet_ntop failed, devname:%s, ipv4_binary:0x%08x, errno:%d.",
                    config_.devname.get_value(), ipv4_binary, errno);
@@ -1885,15 +1885,15 @@ int ObServer::init_config()
 
   if (OB_FAIL(ret)) {
     // nop
-  } else if (!is_arbitration_mode() && OB_FAIL(config_.strict_check_special())) {
+  } else if (!is_arbitration_mode() && OB_FAIL(config_.strict_check_special())) { //严格检查特殊
     LOG_ERROR("some config setting is not valid", KR(ret));
-  } else if (OB_FAIL(GMEMCONF.reload_config(config_))) {
+  } else if (OB_FAIL(GMEMCONF.reload_config(config_))) { //重新加载配置
     LOG_ERROR("reload memory config failed", KR(ret));
-  } else if (!is_arbitration_mode() && OB_FAIL(set_running_mode())) {
+  } else if (!is_arbitration_mode() && OB_FAIL(set_running_mode())) { //重新
     LOG_ERROR("set running mode failed", KR(ret));
   } else {
-    int32_t local_port = static_cast<int32_t>(config_.rpc_port);
-    if (strlen(config_.local_ip) > 0) {
+    int32_t local_port = static_cast<int32_t>(config_.rpc_port);//rpc port
+    if (strlen(config_.local_ip) > 0) { //设置指定local_ip
       self_addr_.set_ip_addr(config_.local_ip, local_port);
     } else {
       if (config_.use_ipv6) {
@@ -1906,12 +1906,12 @@ int ObServer::init_config()
       }
     }
 
-    const char *syslog_file_info = ObServerUtils::build_syslog_file_info(self_addr_);
-    OB_LOGGER.set_new_file_info(syslog_file_info);
+    const char *syslog_file_info = ObServerUtils::build_syslog_file_info(self_addr_); //获得字符串
+    OB_LOGGER.set_new_file_info(syslog_file_info); //设置日志
     LOG_INFO("Build basic information for each syslog file", "info", syslog_file_info);
 
     // initialize self address
-    obrpc::ObRpcProxy::myaddr_ = self_addr_;
+    obrpc::ObRpcProxy::myaddr_ = self_addr_; //rpcProxy
     LOG_INFO("my addr", K_(self_addr));
     config_.self_addr_ = self_addr_;
 
@@ -1927,13 +1927,13 @@ int ObServer::init_config()
       omt::UpdateTenantConfigCb update_tenant_config_cb =
         [&](uint64_t tenant_id)-> void
       {
-        multi_tenant_.update_tenant_config(tenant_id);
+        multi_tenant_.update_tenant_config(tenant_id); //更新租户配置
       };
       // initialize configure module
       if (!self_addr_.is_valid()) {
         ret = OB_INVALID_ARGUMENT;
         LOG_ERROR("local address isn't valid", K(self_addr_), KR(ret));
-      } else if (OB_FAIL(TG_START(lib::TGDefIDs::ServerGTimer))) {
+      } else if (OB_FAIL(TG_START(lib::TGDefIDs::ServerGTimer))) { //定时器
         LOG_ERROR("init timer fail", KR(ret));
       } else if (OB_FAIL(TG_START(lib::TGDefIDs::FreezeTimer))) {
         LOG_ERROR("init freeze timer fail", KR(ret));
